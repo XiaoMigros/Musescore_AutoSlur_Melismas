@@ -2,6 +2,7 @@
 //  Auto-slur Melismas
 //
 //  Copyleft (🄯) 2021 Michele Spagnolo
+//  Modified 2023, XiaoMigros
 //
 //  This program is free software: you can redistribute it and/or modify
 //  it under the terms of the GNU General Public License as published by
@@ -21,50 +22,61 @@ import QtQuick 2.0
 import MuseScore 3.0
 
 MuseScore {
-      menuPath: "Plugins.Auto-Slur Melismas"
-      description: "This plugin automatically add slurs to vocal melismas"
-      version: "1.0"
-      onRun: {
-            if (typeof curScore === 'undefined')
-                  Qt.quit()
-            
-            curScore.startCmd()
-            
-            var maxMelLength = 5 // Change this variable as needed!
-            
-            var cursor = curScore.newCursor()
+	menuPath: "Plugins.Auto-Slur Melismas"
+	description: qsTr("This plugin automatically add slurs to vocal melismas")
+	version: "1.1"
+	requiresScore: true
 
-            var endTick = curScore.lastSegment.tick+1; // Get the tick to the end of the score
-            
-            for (var staff = 0; staff < curScore.nstaves; staff++){ // Cycle through all staves
-                  
-                  var melismaList = [] // For each detected melisma on the current staff, 
-				       // the couple (melStart, melLength) will be appended to the array
-                  cursor.staffIdx = staff
-                  cursor.rewind(0) // Rewind cursor at the beginning of current staff
-                  
-                  while (cursor.segment && cursor.tick < endTick){
-                        if (cursor.element.lyrics.length > 0){ // if there's a syllable then:                         
-                              var melStart = cursor.tick                        
-                              var melLength = 0
-                              cursor.next()
-                              while (cursor.segment && cursor.element.type == Element.CHORD  && cursor.element.lyrics.length == 0 && melLength <= maxMelLength){
-                                    melLength++
-                                    cursor.next()                                    
-                              }
-                              if (melLength > 0 && melLength < maxMelLength)
-                                    melismaList.push([melStart, melLength]) // When the melisma is recognized, it is saved in this array                                                                                                              
-                        } else cursor.next()
-                  }
-                  
-                  for (var i=0; i<melismaList.length; i++){ //now let's enter all the slurs on the current staff
-                        cursor.rewindToTick(melismaList[i][0]) //cursor goes to start of melismas
-                        curScore.selection.select(cursor.element.notes[0]) //select the note
-                        for (var j=0; j<melismaList[i][1]; j++)
-                              cmd("select-next-chord") //extends the range selection as many times as the length of the melisma (extremely inefficient)
-                        cmd("add-slur") // equivalent of the 's' keyboard shortcut
-                  }
-            }        
-            Qt.quit()
-            }
-      }
+	Component.onCompleted : {
+		if (mscoreMajorVersion >= 4) {
+			title = qsTr("Auto-Slur Melismas") ;
+			categoryCode = "notes-rests";
+		} //if
+	}//Component
+	
+	property int maxMelLength: 5 // Change this variable as needed!
+	
+	onRun: {
+		var cursor = curScore.newCursor()
+		var endTick = curScore.lastSegment.tick+1; // Get the tick to the end of the score
+		
+		for (var staff in curScore.nstaves) { // Cycle through all staves
+			for (var voice = 0; voice < 4; voice++) {
+				var melismaList = []
+				var melismaLength = []
+				cursor.staffIdx = staff
+				cursor.voice = voice
+				cursor.rewind(0) // Rewind cursor at the beginning of current staff
+				
+				while (cursor.element) {
+					if (cursor.element.lyrics.length > 0) { // if there's a syllable then:                         
+						var melStart = cursor.tick
+						var melLength = 0
+						cursor.next()
+						while (cursor.segment && cursor.element.type == Element.CHORD  && cursor.element.lyrics.length == 0 && melLength <= maxMelLength) {
+							melLength += 1
+							cursor.next()
+						}
+						melismaList.push(melStart) // When the melisma is recognized, it is saved in this array
+						melismaLength.push(melLength)
+						console.log(melStart)
+						console.log(melLength)
+					} else {
+						console.log("no lyrics")
+						cursor.next()
+					}
+				}
+
+				for (var i in melismaList) { //now let's enter all the slurs on the current staff
+					cursor.rewindToTick(melismaList[i]) //cursor goes to start of melismas
+					curScore.selection.clear()
+					curScore.selection.select(cursor.element.notes[0]) //select the note
+					for (var j; j < melismaLength[i]; j++) {
+						cmd("select-next-chord") //extends the range selection as many times as the length of the melisma (extremely inefficient)
+					}
+					cmd("add-slur") // equivalent of the 's' keyboard shortcut
+				}
+			}//for voice
+		}//for staff
+	}//onRun
+}//MuseScore
