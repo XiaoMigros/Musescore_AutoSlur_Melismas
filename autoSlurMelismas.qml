@@ -46,7 +46,7 @@ MuseScore {
 				var melismaLength = []
 				cursor.staffIdx = staff
 				cursor.voice = voice
-				cursor.rewind(0) // Rewind cursor at the beginning of current staff
+				cursor.rewind(Cursor.SCORE_START)
 				
 				while (cursor.element) {
 					if (cursor.element.lyrics.length > 0) { // if there's a syllable then:                         
@@ -71,7 +71,7 @@ MuseScore {
 					cursor.rewindToTick(melismaList[i]) //cursor goes to start of melismas
 					curScore.selection.clear()
 					curScore.selection.select(cursor.element.notes[0]) //select the note
-					for (var j; j < melismaLength[i]; j++) {
+					for (var j in melismaLength[i]) {
 						cmd("select-next-chord") //extends the range selection as many times as the length of the melisma (extremely inefficient)
 					}
 					cmd("add-slur") // equivalent of the 's' keyboard shortcut
